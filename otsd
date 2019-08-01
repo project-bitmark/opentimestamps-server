@@ -24,6 +24,7 @@ import bitcoin.core
 import otsserver.calendar
 import otsserver.rpc
 import otsserver.stamper
+from otsserver import BitmarkMainParams, BitmarkTestnetParams, BitmarkRegtestParams
 
 parser = argparse.ArgumentParser(description="OpenTimestamps Server")
 
@@ -58,25 +59,24 @@ parser.add_argument("--max-pending", type=int,
 
 parser.add_argument("--btc-min-relay-feerate", metavar='FEEPERKB', type=float,
                     default=0.00001,
-                    help="Minimum relay feerate (default: %(default).6f BTC/KB)")
+                    help="Minimum relay feerate (default: %(default).6f BTM/KB)")
 parser.add_argument("--btc-min-confirmations", metavar='N', type=int,
                     default=6,
-                    help="Confirmations required before we save a Bitcoin timestamp permanently, must be greater than 1"
-                         " (default: %(default)d)")
+                    help="Confirmations required before we save a Bitmark timestamp permanently, must be greater than 1 (default: %(default)d)")
 parser.add_argument("--btc-min-tx-interval", metavar='SECONDS', type=int,
                     default=3600,
                     help="Minimum interval between timestamp transactions (default: %(default)d seconds)")
 parser.add_argument("--btc-max-fee", metavar='FEE', type=float,
                     default=0.0001,
-                    help="Maximum transaction fee (default: %(default).3f BTC)")
+                    help="Maximum transaction fee (default: %(default).3f BTM)")
 
 btc_net_group = parser.add_mutually_exclusive_group()
 btc_net_group.add_argument('--btc-testnet', dest='btc_net', action='store_const',
                            const='testnet', default='mainnet',
-                           help='Use Bitcoin testnet rather than mainnet')
+                           help='Use Bitmark testnet rather than mainnet')
 btc_net_group.add_argument('--btc-regtest', dest='btc_net', action='store_const',
                            const='regtest',
-                           help='Use Bitcoin regtest rather than mainnet')
+                           help='Use Bitmark regtest rather than mainnet')
 
 args = parser.parse_args()
 args.parser = parser
@@ -105,10 +105,11 @@ elif args.verbosity == -1:
 elif args.verbosity < -1:
     logging.root.setLevel(logging.ERROR)
 
+bitcoin.params = BitmarkMainParams()
 if args.btc_net == 'testnet':
-    bitcoin.SelectParams('testnet')
+    bitcoin.params = BitmarkTestnetParams()
 elif args.btc_net == 'regtest':
-    bitcoin.SelectParams('regtest')
+    bitcoin.params = BitmarkRegtestParams()
 
 
 exit_event = threading.Event()

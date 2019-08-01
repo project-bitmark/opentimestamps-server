@@ -30,20 +30,20 @@ locally. Equally, mirror servers should be able to aggregate digests for
 submission to another calendar.
 
 
-## Collaborative Bitcoin Timestamping
+## Collaborative Bitmark Timestamping
 
-Currently each public calendar makes its own Bitcoin transactions; they should
+Currently each public calendar makes its own Bitmark transactions; they should
 work collaboratively, so that only one transaction is used for all calendars. A
 simple way to do this would be to have a master calendar, that normally is the
-only server making Bitcoin transactions, and then have the slave calendars
+only server making Bitmark transactions, and then have the slave calendars
 switch to making their own transactions if the master isn't responding.
 
 
-### External Bitcoin Timestamping
+### External Bitmark Timestamping
 
 An alternate approach would be for calendar servers to advertise merkle tips
-that they want timestamped, and then accept Bitcoin timestamps provided by
-anyone for those tips. Bitcoin timestamping functionality could then be done
+that they want timestamped, and then accept Bitmark timestamps provided by
+anyone for those tips. Bitmark timestamping functionality could then be done
 external to the public calendars, and redundancy provided by having multiple
 stampers with varying timeouts. Equally, this would allow anyone to help out
 the public infrastructure by donating a timestamp transaction (which is also a

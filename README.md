@@ -1,19 +1,19 @@
 # OpenTimestamps Calendar Server
 
 This package provides the `otsd` daemon, a calendar server which provides
-aggregation, Bitcoin timestamping, and remote calendar services for
+aggregation, Bitmark timestamping, and remote calendar services for
 OpenTimestamps clients. You *do not* need to run a server to use the
 OpenTimestamps protocol - public servers exist that are free to use. That said,
 running a server locally can be useful for developers of OpenTimestamps
-protocol clients, particularly with a local Bitcoin node running in regtest
+protocol clients, particularly with a local Bitmark node running in regtest
 mode.
 
 
 ## Installation
 
-You'll need a local Bitcoin node version 0.17.1 with a wallet with some funds in it; a pruned
+You'll need a local Bitmark node with a wallet with some funds in it; a pruned
 node is fine. While `otsd` is running the wallet should not be used for other
-purposes, as currently the Bitcoin timestamping functionality assumes that it
+purposes, as currently the Bitmark timestamping functionality assumes that it
 has exclusive use of the wallet.
 
 Install the requirements:
@@ -67,7 +67,7 @@ Tip: with regtest you can mine blocks on demand to make your timestamp confirm
 with the `generate` RPC command. For example, to mine ten blocks instantly:
 
 ```
-bitcoin-cli generate 10
+bitmark-cli generate 10
 ```
 
 By default `otsd` binds to localhost, and isn't really designed to be exposed
@@ -75,15 +75,6 @@ directly to the public. For production usage we recommend using a reverse
 proxy; an example configuration for nginx is provided under the
 `contrib/nginx` directory of this repo.
 
-## Bitcoin core
-
-Bitcoin node must be version 0.17.1 and the following options are needed:
-
-```
-deprecatedrpc=signrawtransaction
-deprecatedrpc=accounts
-addresstype=bech32
-```
 
 ## Unit tests
 

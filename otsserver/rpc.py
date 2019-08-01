@@ -27,6 +27,7 @@ import otsserver
 from opentimestamps.core.serialize import StreamSerializationContext
 
 from otsserver.calendar import Journal
+from otsserver import coin_conf_file
 renderer = pystache.Renderer()
 
 class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
@@ -57,14 +58,7 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
         timestamp.serialize(ctx)
 
     def get_tip(self):
-        try:
-            msg = self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg
-        except:
-            self.send_response(404)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            return
-
+        msg = self.calendar.stamper.unconfirmed_txs[-1].tip_timestamp.msg
         if msg is not None:
             self.send_response(200)
             self.send_header('Content-type', 'application/octet-stream')
@@ -146,8 +140,8 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         self.send_response(200)
 
-        # Since only Bitcoin attestations are currently made, once a commitment
-        # is timestamped by Bitcoin this response will never change.
+        # Since only Bitmark attestations are currently made, once a commitment
+        # is timestamped by Bitmark this response will never change.
         self.send_header('Cache-Control', 'public, max-age=3600')
 
         self.send_header('Content-type', 'application/octet-stream')
@@ -179,13 +173,13 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
             self.end_headers()
 
-            proxy = bitcoin.rpc.Proxy()
+            proxy = bitcoin.rpc.Proxy(btc_conf_file=coin_conf_file)
 
             # FIXME: Unfortunately getbalance() doesn't return the right thing;
             # need to investigate further, but this seems to work.
             str_wallet_balance = str(proxy._call("getbalance"))
 
-            transactions = proxy._call("listtransactions", "*", 1000)
+            transactions = proxy._call("listtransactions", "", 1000)
             # We want only the confirmed txs containing an OP_RETURN, from most to least recent
             transactions = list(filter(lambda x: x["confirmations"] > 0 and x["amount"] == 0, transactions))
             a_week_ago = (datetime.date.today() - datetime.timedelta(days=7)).timetuple()
@@ -200,10 +194,10 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
             transactions.sort(key=lambda x: x["confirmations"])
             homepage_template = """<html>
 <head>
-    <title>OpenTimestamps Calendar Server</title>
+    <h1><title>Bitmark OpenTimestamps Calendar Server</title> </h1>
 </head>
 <body>
-<p>This is an <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</a> (v{{ version }})</p>
+<p><h3>Bitmark <a href="https://opentimestamps.org">OpenTimestamps</a> <a href="https://github.com/opentimestamps/opentimestamps-server">Calendar Server</h3></a> (v{{ version }})</p>
 <p>
 Pending commitments: {{ pending_commitments }}</br>
 Transactions waiting for confirmation: {{ txs_waiting_for_confirmation }}</br>
@@ -211,7 +205,7 @@ Most recent timestamp tx: {{ most_recent_tx }} ({{ prior_versions }} prior versi
 Most recent merkle tree tip: {{ tip }}</br>
 Best-block: {{ best_block }}, height {{ block_height }}</br>
 </br>
-Wallet balance: {{ balance }} BTC</br>
+Wallet balance: {{ balance }} BTM</br>
 </p>
 <p>
 You can donate to the wallet by sending funds to: {{ address }}</br>
@@ -219,7 +213,7 @@ This address changes after every donation.
 </p>
 <p>
 Average time between transactions in the last week: {{ time_between_transactions }} </br>
-Fees used in the last week: {{ fees_in_last_week }} BTC</br>
+Fees used in the last week: {{ fees_in_last_week }} BTM</br>
 Latest transactions: </br>
 {{#transactions}}
     {{txid}} </br>
@@ -237,7 +231,7 @@ Latest transactions: </br>
               'best_block': bitcoin.core.b2lx(proxy.getbestblockhash()),
               'block_height': proxy.getblockcount(),
               'balance': str_wallet_balance,
-              'address': proxy._call("getaccountaddress",""),
+              'address': str(proxy.getaccountaddress('')),
               'transactions': transactions[:5],
               'time_between_transactions': time_between_transactions,
               'fees_in_last_week': fees_in_last_week,

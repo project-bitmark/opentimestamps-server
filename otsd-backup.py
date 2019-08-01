@@ -49,10 +49,10 @@ parser.add_argument("--rpc-address", type=str,
 
 parser.add_argument('--btc-testnet', dest='btc_net', action='store_const',
                     const='testnet', default='mainnet',
-                    help='Use Bitcoin testnet rather than mainnet')
+                    help='Use Bitmark testnet rather than mainnet')
 parser.add_argument('--btc-regtest', dest='btc_net', action='store_const',
                     const='regtest',
-                    help='Use Bitcoin regtest rather than mainnet')
+                    help='Use Bitmark regtest rather than mainnet')
 
 args = parser.parse_args()
 args.parser = parser
