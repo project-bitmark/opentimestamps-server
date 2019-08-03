@@ -1,11 +1,11 @@
 [Unit]
 Description=OpenTimestamps server
-After=bitcoind.service
+After=bitmarkd.service
 
 [Service]
 User=ots
 Group=ots
-ExecStartPre=/bin/bash /usr/local/bin/bitcoind-ready.sh
+ExecStartPre=/bin/bash /usr/local/bin/bitmarkd-ready.sh
 ExecStart=/home/ots/opentimestamps-server/otsd -v
 Restart=on-failure
 

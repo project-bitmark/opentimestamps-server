@@ -13,10 +13,10 @@ import collections
 import logging
 import threading
 import time
-import random
+import sys
 import bitcoin.rpc
 
-from bitcoin.core import COIN, b2lx, b2x, x, lx, CTxIn, CTxOut, COutPoint, CTransaction, str_money_value
+from bitcoin.core import COIN, b2lx, b2x, CTxIn, CTxOut, CTransaction, str_money_value
 from bitcoin.core.script import CScript, OP_RETURN
 
 from opentimestamps.bitcoin import cat_sha256d
@@ -25,6 +25,7 @@ from opentimestamps.core.op import OpPrepend, OpSHA256
 from opentimestamps.core.timestamp import Timestamp, make_merkle_tree
 
 from otsserver.calendar import Journal
+from otsserver import coin_conf_file
 
 KnownBlock = collections.namedtuple('KnownBlock', ['height', 'hash'])
 TimestampTx = collections.namedtuple('TimestampTx', ['tx', 'tip_timestamp', 'commitment_timestamps'])
@@ -161,35 +162,22 @@ def _get_tx_fee(tx, proxy):
     value_out = sum(txout.nValue for txout in tx.vout)
     return value_in - value_out
 
-# not using proxy.listunspent() because it tries to convert bech32 address as base58
-def listunspent(proxy, minconf=0, maxconf=999999):
-    r = proxy._call('listunspent', minconf, maxconf)
-
-    r2 = []
-    for unspent in r:
-        unspent['outpoint'] = COutPoint(lx(unspent['txid']), unspent['vout'])
-        del unspent['txid']
-        del unspent['vout']
-        unspent['scriptPubKey'] = CScript(x(unspent['scriptPubKey']))
-        unspent['amount'] = int(unspent['amount'] * COIN)
-        r2.append(unspent)
-    return r2
-
 def find_unspent(proxy):
     def sort_filter_unspent(unspent):
         DUST = 0.001 * COIN
         return sorted(filter(lambda x: x['amount'] > DUST and x['spendable'], unspent),
                       key=lambda x: x['amount'])
 
-    unspent = sort_filter_unspent(listunspent(proxy,1))
+    unspent = sort_filter_unspent(proxy.listunspent(1))
 
     if len(unspent):
         return unspent
+
     else:
         logging.info("Couldn't find a confirmed output, trying unconfirmed")
 
         # Try again with the unconfirmed transactions
-        unconfirmed_unspent = sort_filter_unspent(listunspent(proxy, 0, 1))
+        unconfirmed_unspent = sort_filter_unspent(proxy.listunspent(0, 1))
 
         confirmed_unspent = []
         for unspent_txout in unconfirmed_unspent:
@@ -277,12 +265,12 @@ class Stamper:
             return tip_timestamp, commitment_timestamps
 
     def __do_bitcoin(self):
-        """Do Bitcoin-related maintenance"""
+        """Do Bitmark-related maintenance"""
 
         # FIXME: we shouldn't have to create a new proxy each time, but with
-        # current python-bitcoinlib and the RPC implementation it seems that
+        # current python-bitmarklib and the RPC implementation it seems that
         # the proxy connection can timeout w/o recovering properly.
-        proxy = bitcoin.rpc.Proxy()
+        proxy = bitcoin.rpc.Proxy(btc_conf_file=coin_conf_file)
 
         new_blocks = self.known_blocks.update_from_proxy(proxy)
 
@@ -324,7 +312,7 @@ class Stamper:
                 except BrokenPipeError:
                     logging.error("BrokenPipeError to get block")
                     time.sleep(5)
-                    proxy = bitcoin.rpc.Proxy()
+                    proxy = bitcoin.rpc.Proxy(btc_conf_file=coin_conf_file)
 
             # the following is an optimization, by pre computing the tx_id we rapidly check if our unconfirmed tx
             # is in the block
@@ -370,7 +358,7 @@ class Stamper:
 
                 break
 
-        time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval * random.uniform(1, 2) - time.time())
+        time_to_next_tx = int(self.last_timestamp_tx + self.min_tx_interval - time.time())
         if time_to_next_tx > 0:
             # Minimum interval between transactions hasn't been reached, so do nothing
             logging.debug("Waiting %ds before next tx" % time_to_next_tx)
@@ -390,12 +378,9 @@ class Stamper:
                 logging.error("Can't timestamp; no spendable outputs")
                 return
 
-            change_addr = proxy._call("getnewaddress", "", "bech32")
-            change_addr_info = proxy._call("getaddressinfo",change_addr)
-            change_addr_script = x(change_addr_info['scriptPubKey'])
-
+            change_addr = proxy.getnewaddress()
             prev_tx = self.__create_new_timestamp_tx_template(unspent[-1]['outpoint'], unspent[-1]['amount'],
-                                                              change_addr_script)
+                                                              change_addr.to_scriptPubKey())
 
             logging.debug('New timestamp tx, spending output %r, value %s' % (unspent[-1]['outpoint'],
                                                                               str_money_value(unspent[-1]['amount'])))
@@ -404,7 +389,7 @@ class Stamper:
         logging.debug("New tip is %s" % b2x(tip_timestamp.msg))
         # make_merkle_tree() seems to take long enough on really big adds
         # that the proxy dies
-        proxy = bitcoin.rpc.Proxy()
+        proxy = bitcoin.rpc.Proxy(btc_conf_file=coin_conf_file)
 
         sent_tx = None
         relay_feerate = self.relay_feerate
@@ -473,11 +458,10 @@ class Stamper:
                 # Is this commitment already stamped?
                 if commitment not in self.calendar:
                     self.pending_commitments.add(commitment)
-                    if idx % 100 == 0:
-                        logging.debug('Added %s (idx %d) to pending commitments; %d total'
-                                      % (b2x(commitment), idx, len(self.pending_commitments)))
+                    logging.debug('Added %s (idx %d) to pending commitments; %d total'
+                                  % (b2x(commitment), idx, len(self.pending_commitments)))
                 else:
-                    if idx % 10000 == 0:
+                    if idx % 1000 == 0:
                         logging.debug('Commitment at idx %d already stamped' % idx)
 
                 idx += 1
@@ -488,14 +472,14 @@ class Stamper:
                 # !@#$ Python.
                 #
                 # Just logging errors like this is garbage, but we don't really
-                # know all the ways that __do_bitcoin() will raise an exception
+                # know all the ways that __do_bitmark() will raise an exception
                 # so easiest just to ignore and continue onwards.
                 #
-                # Mainly Bitcoin Core has been hanging up on our RPC
-                # connection, and python-bitcoinlib doesn't have great handling
+                # Mainly Bitmark Core has been hanging up on our RPC
+                # connection, and python-bitmarklib doesn't have great handling
                 # of that. In our case we should be safe to just retry as
-                # __do_bitcoin() is fairly self-contained.
-                logging.error("__do_bitcoin() failed: %r" % exp, exc_info=True)
+                # __do_bitmark() is fairly self-contained.
+                logging.error("__do_bitmark() failed: %r" % exp, exc_info=True)
 
             self.exit_event.wait(1)
 
@@ -505,7 +489,7 @@ class Stamper:
         Returns False if not, or str reason if it is
         """
         if commitment in self.pending_commitments:
-            return "Pending confirmation in Bitcoin blockchain"
+            return "Pending confirmation in Bitmark blockchain"
 
         else:
             for height, ttx in self.txs_waiting_for_confirmation.items():

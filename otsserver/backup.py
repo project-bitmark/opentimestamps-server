@@ -26,6 +26,7 @@ import requests
 from tempfile import NamedTemporaryFile
 import time
 from urllib.parse import urlparse, urljoin
+from otsserver import BitmarkMainParams, BitmarkTestnetParams, BitmarkRegtestParams, coin_conf_file
 
 PAGING = 1000  # Number of commitments per chunk
 SLEEP_SECS = 60  # Once the backup is synced this is the polling interval to check for new chunks
@@ -189,8 +190,8 @@ class RPCRequestHandler(http.server.BaseHTTPRequestHandler):
 
         self.send_response(200)
 
-        # Since only Bitcoin attestations are currently made, once a commitment
-        # is timestamped by Bitcoin this response will never change.
+        # Since only Bitmark attestations are currently made, once a commitment
+        # is timestamped by Bitmark this response will never change.
         self.send_header('Cache-Control', 'public, max-age=3600')
 
         self.send_header('Content-type', 'application/octet-stream')
@@ -248,10 +249,11 @@ class AskBackup(threading.Thread):
             last_known = -1
         logging.info("Checking calendar " + str(self.calendar_url) + ", last_known commitment:" + str(last_known))
 
+        bitcoin.params = BitmarkMainParams()
         if self.btc_net == 'testnet':
-            bitcoin.SelectParams('testnet')
+            bitcoin.params = BitmarkTestnetParams()
         elif self.btc_net == 'regtest':
-            bitcoin.SelectParams('regtest')
+            bitcoin.params = BitmarkRegtestParams()
 
         while True:
             start_time = time.time()
@@ -285,24 +287,17 @@ class AskBackup(threading.Thread):
                     op = Op.deserialize(ctx)
                     ops[key] = op
 
-            proxy = bitcoin.rpc.Proxy()
+            proxy = bitcoin.rpc.Proxy(btc_conf_file=coin_conf_file)
 
-            # Verify all bitcoin attestation are valid
+            # Verify all bitmark attestation are valid
             logging.debug("Total attestations: " + str(len(attestations)))
             for key, attestation in attestations.items():
                 if attestation.__class__ == BitcoinBlockHeaderAttestation:
-                    while True:
-                        try:
-                            blockhash = proxy.getblockhash(attestation.height)
-                            block_header = proxy.getblockheader(blockhash)
-                            # the following raise an exception and block computation if the attestation does not verify
-                            attested_time = attestation.verify_against_blockheader(key, block_header)
-                            logging.debug("Verifying " + b2x(key) + " result " + str(attested_time))
-                            break;
-                        except Exception as err:
-                            logging.info("%s - error contacting bitcoin node, sleeping..." % (err))
-                            time.sleep(SLEEP_SECS)
-                            proxy = bitcoin.rpc.Proxy()
+                    blockhash = proxy.getblockhash(attestation.height)
+                    block_header = proxy.getblockheader(blockhash)
+                    # the following raise an exception and block computation if the attestation does not verify
+                    attested_time = attestation.verify_against_blockheader(key, block_header)
+                    logging.debug("Verifying " + b2x(key) + " result " + str(attested_time))
 
             # verify all ops connects to an attestation
             logging.debug("Total ops: " + str(len(ops)))

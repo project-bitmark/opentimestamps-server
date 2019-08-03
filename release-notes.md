@@ -8,7 +8,7 @@
 
 * More informative status page, with stats on latest txs, time between txs, and
   fees
-* Better recovery for Bitcoin RPC failures
+* Better recovery for Bitmark RPC failures
 * Increased default minimum between txs to 1 hour
 * Stricter conditions on what txs we add to the calendar
 
