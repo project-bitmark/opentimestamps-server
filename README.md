@@ -1,10 +1,10 @@
-# OpenTimestamps Calendar Server
+# Open Timestamps Calendar Server
 
 This package provides the `otsd` daemon, a calendar server which provides
 aggregation, Bitmark timestamping, and remote calendar services for
 OpenTimestamps clients. You *do not* need to run a server to use the
-OpenTimestamps protocol - public servers exist that are free to use. That said,
-running a server locally can be useful for developers of OpenTimestamps
+OpenTimestamps protocol - public servers exist that are free to use. 
+Running a server locally can be useful for developers of OpenTimestamps
 protocol clients, particularly with a local Bitmark node running in regtest
 mode.
 
